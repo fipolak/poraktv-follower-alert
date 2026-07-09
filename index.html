@@ -9,7 +9,7 @@ html, body { width:1920px; height:1080px; background:transparent; overflow:hidde
 #scene { width:1920px; height:1080px; position:relative; overflow:hidden; background:transparent; }
 
 #container {
-  position:absolute; top:30px; left:-700px;
+  position:absolute; top:30px; left:-700px; white-space:nowrap;
   display:flex; flex-direction:row; align-items:center; gap:24px;
   opacity:0;
 }
@@ -105,7 +105,7 @@ function play(name){
   nameText.textContent=(name||'FOLLOWER').toUpperCase();
   var snd=document.getElementById('follower-sound');
   if(snd){snd.currentTime=0;snd.play().catch(function(){});}
-  var targetX=60;
+  var targetX=(1920/2)-(container.offsetWidth/2);
 
   var start=null;
   function slideIn(ts){
