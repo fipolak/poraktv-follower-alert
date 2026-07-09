@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;700&display=swap" rel="stylesheet">
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body { width:1920px; height:1080px; background:transparent; overflow:hidden; }
+#scene { width:1920px; height:1080px; position:relative; overflow:hidden; background:transparent; }
+
+#container {
+  position:absolute; top:30px; left:-700px;
+  display:flex; flex-direction:row; align-items:center; gap:24px;
+  opacity:0;
+}
+#logo-wrap {
+  position:relative; width:160px; height:160px; flex-shrink:0;
+}
+#logo-canvas {
+  width:160px; height:160px; border-radius:50%;
+  display:block;
+}
+#text-wrap { display:flex; flex-direction:column; gap:4px; }
+#name-text {
+  font-family:'Oswald',sans-serif; font-weight:700; font-size:56px;
+  color:#FF2200; letter-spacing:4px; text-transform:uppercase;
+  text-shadow:0 0 20px rgba(255,20,0,0.9), 0 3px 0 rgba(0,0,0,0.9);
+}
+#followed-text {
+  font-family:'Oswald',sans-serif; font-weight:400; font-size:32px;
+  color:#ffffff; letter-spacing:6px; text-transform:uppercase;
+  text-shadow:0 0 10px rgba(255,20,0,0.5), 0 2px 0 rgba(0,0,0,0.9);
+}
+.spark { position:absolute; border-radius:50%; pointer-events:none; }
+#playbtn {
+  position:absolute; bottom:30px; left:50%; transform:translateX(-50%);
+  background:rgba(0,0,0,0.7); border:2px solid #FF2200; color:#FF2200;
+  font-family:'Oswald',sans-serif; font-size:18px; letter-spacing:4px;
+  padding:12px 36px; border-radius:6px; cursor:pointer; text-transform:uppercase; z-index:100;
+}
+</style>
+</head>
+<body>
+<div id="scene">
+  <div id="container">
+    <div id="logo-wrap">
+      <canvas id="logo-canvas" width="160" height="160"></canvas>
+    </div>
+    <div id="text-wrap">
+      <div id="name-text">TestUser</div>
+      <div id="followed-text">JUST FOLLOWED</div>
+    </div>
+  </div>
+  <button id="playbtn">▶ PLAY</button>
+</div>
+
+<video id="src-video" src="https://i.imgur.com/Nn5kvJf.mp4"
+  crossorigin="anonymous" loop muted playsinline preload="auto"
+  style="position:absolute;left:-9999px;width:160px;height:160px;">
+</video>
+
+<script>
+var scene=document.getElementById('scene');
+var container=document.getElementById('container');
+var nameText=document.getElementById('name-text');
+var btn=document.getElementById('playbtn');
+var canvas=document.getElementById('logo-canvas');
+var ctx=canvas.getContext('2d');
+var vid=document.getElementById('src-video');
+var running=false;
+var drawingActive=false;
+
+function startDraw(){
+  if(drawingActive)return;
+  drawingActive=true;
+  vid.play();
+  function draw(){
+    if(!drawingActive)return;
+    ctx.clearRect(0,0,160,160);
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(80,80,80,0,Math.PI*2);
+    ctx.clip();
+    ctx.drawImage(vid,0,0,160,160);
+    ctx.restore();
+    var img=ctx.getImageData(0,0,160,160);
+    var d=img.data;
+    for(var i=0;i<d.length;i+=4){
+      var brightness=(d[i]+d[i+1]+d[i+2])/3;
+      if(brightness<25){d[i+3]=0;}
+      else if(brightness<50){d[i+3]=Math.round((brightness-25)/25*255);}
+    }
+    ctx.putImageData(img,0,0);
+    requestAnimationFrame(draw);
+  }
+  requestAnimationFrame(draw);
+}
+
+vid.addEventListener('canplay',startDraw);
+vid.load();
+
+function easeOutCubic(t){return 1-Math.pow(1-t,3);}
+function easeInCubic(t){return t*t*t;}
+
+function reset(){
+  container.style.left='-700px';
+  container.style.opacity='0';
+  running=false;
+}
+
+function play(name){
+  if(running)return;running=true;
+  btn.style.display='none';
+  nameText.textContent=(name||'TestUser').toUpperCase();
+  var snd=document.getElementById('follower-sound'); if(snd){snd.currentTime=0;snd.play().catch(function(){});}
+  var targetX=60;
+
+  var start=null;
+  function slideIn(ts){
+    if(!start)start=ts;
+    var p=Math.min(1,(ts-start)/800);
+    var ep=easeOutCubic(p);
+    container.style.left=((-700)+(targetX+700)*ep)+'px';
+    container.style.opacity=Math.min(1,p*2);
+    if(p<1){requestAnimationFrame(slideIn);}
+    else{
+      container.style.left=targetX+'px';
+      container.style.opacity='1';
+
+      setTimeout(function(){
+        var start2=null;
+        function slideOut(ts){
+          if(!start2)start2=ts;
+          var p=Math.min(1,(ts-start2)/700);
+          container.style.left=(targetX+(1920+700)*easeInCubic(p))+'px';
+          container.style.opacity=''+(1-easeOutCubic(p));
+          if(p<1)requestAnimationFrame(slideOut);
+          else{reset();btn.style.display='block';}
+        }requestAnimationFrame(slideOut);
+      },3500);
+    }
+  }
+  requestAnimationFrame(slideIn);
+}
+
+btn.addEventListener('click',function(){play('TestUser');});
+
+window.addEventListener('onEventReceived',function(obj){
+  var d=obj.detail;
+  if(!d||!d.event)return;
+  if(d.listener==='follower-latest'||d.listener==='follow'){
+    play(d.event.name||d.event.displayName||'FOLLOWER');
+  }
+});
+window.addEventListener('onWidgetLoad',function(){reset(); var s=document.getElementById('follower-sound'); if(s)s.load();});
+</script>
+<audio id="follower-sound" src="https://fipolak.github.io/poraktv-follower-alert/heknew.mp3" preload="auto"></audio>
+</body>
+</html>
